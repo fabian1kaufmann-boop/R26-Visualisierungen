@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Blatt 05 — Visuelle Lernhilfen (Rechenmethoden für Physiker)</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-tag">LMU · R26 Rechenmethoden</div>
+        <h1>Blatt 05: Visuelle Hilfen</h1>
+        <p class="brand-sub">Mehrdimensionales Integrieren II &amp; Felder I</p>
+      </div>
+
+      <nav id="problem-nav" class="nav-list" aria-label="Aufgabennavigation">
+        <!-- Populated dynamically by app.js -->
+      </nav>
+
+      <div class="sidebar-footer">
+        <p><strong>Steuerung:</strong></p>
+        <p>3D-Ansicht: Ziehen zum Drehen, Scrollen zum Zoomen.</p>
+        <p>2D-Plots: Klicken oder Ziehen, um Punkte zu verschieben.</p>
+      </div>
+    </aside>
+
+    <main class="workspace">
+      <header class="problem-header">
+        <div>
+          <span id="problem-badge" class="badge">Beispielaufgabe</span>
+          <h2 id="problem-title">Lade Aufgabe...</h2>
+          <p id="problem-subtitle" class="subtitle"></p>
+        </div>
+        <div id="preset-buttons" class="preset-row"></div>
+      </header>
+
+      <section class="content-grid">
+        <div id="canvas-stage" class="canvas-stage">
+          <!-- Canvases injected here per module -->
+        </div>
+
+        <aside class="inspector">
+          <div class="card">
+            <h3>Parameter &amp; Steuerung</h3>
+            <div id="controls-container" class="controls-list"></div>
+          </div>
+
+          <div class="card">
+            <h3>Formeln &amp; Messwerte</h3>
+            <div id="readout-container" class="readout-box"></div>
+          </div>
+
+          <div class="card note-card">
+            <h3>Was sieht man hier?</h3>
+            <div id="insight-container" class="insight-text"></div>
+          </div>
+        </aside>
+      </section>
+    </main>
+  </div>
+
+  <script src="js/engine3d.js"></script>
+  <script src="js/engine2d.js"></script>
+  <script src="js/problems_integrals.js"></script>
+  <script src="js/problems_fields.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
