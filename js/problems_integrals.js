@@ -156,6 +156,7 @@
     },
     render2D(p2d, s) {
       const info = this.eval1D(s);
+      const isHW = s.expr.startsWith("h1");
       const peak = Math.exp(info.D);
       const yTop = Math.min(25, Math.max(1.35, peak * 1.15));
       const xHalf = Math.max(3.6, Math.abs(info.C) + 2.8);
@@ -203,38 +204,60 @@
       ctx.lineWidth = 2.4;
       ctx.stroke();
 
-      // Shifted base Gaussian exp(-alpha*(x-C)^2)
-      ctx.beginPath();
-      ctx.setLineDash([5, 4]);
-      for (let i = 0; i <= N; i++) {
-        const x = x0 + ((x1 - x0) * i) / N;
-        const y = Math.exp(-info.alpha * (x - info.C) * (x - info.C));
-        const [px, py] = p2d.toPx(x, y, m);
-        if (i === 0) ctx.moveTo(px, py);
-        else ctx.lineTo(px, py);
-      }
-      ctx.strokeStyle = "#2563eb";
-      ctx.lineWidth = 1.7;
-      ctx.stroke();
-      ctx.setLineDash([]);
+      if (!isHW) {
+        // Shifted base Gaussian exp(-alpha*(x-C)^2)
+        ctx.beginPath();
+        ctx.setLineDash([5, 4]);
+        for (let i = 0; i <= N; i++) {
+          const x = x0 + ((x1 - x0) * i) / N;
+          const y = Math.exp(-info.alpha * (x - info.C) * (x - info.C));
+          const [px, py] = p2d.toPx(x, y, m);
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.strokeStyle = "#2563eb";
+        ctx.lineWidth = 1.7;
+        ctx.stroke();
+        ctx.setLineDash([]);
 
-      // Symmetry line x = C
-      const [cxPx, cyTop] = p2d.toPx(info.C, peak, m);
-      const [, cyBot] = p2d.toPx(info.C, 0, m);
-      ctx.beginPath();
-      ctx.setLineDash([3, 3]);
-      ctx.moveTo(cxPx, cyBot);
-      ctx.lineTo(cxPx, cyTop);
-      ctx.strokeStyle = "#dc2626";
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
+        // Symmetry line x = C
+        const [cxPx, cyTop] = p2d.toPx(info.C, peak, m);
+        const [, cyBot] = p2d.toPx(info.C, 0, m);
+        ctx.beginPath();
+        ctx.setLineDash([3, 3]);
+        ctx.moveTo(cxPx, cyBot);
+        ctx.lineTo(cxPx, cyTop);
+        ctx.strokeStyle = "#dc2626";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
       ctx.restore();
 
-      p2d.drawPoint(m, [info.C, peak], { color: "#dc2626", label: `C=${fmt(info.C, 2)}, e^D=${fmt(peak, 2)}` });
+      if (!isHW) {
+        p2d.drawPoint(m, [info.C, peak], { color: "#dc2626", label: `C=${fmt(info.C, 2)}, e^D=${fmt(peak, 2)}` });
+      }
     },
     readout(s) {
       const info = this.eval1D(s);
       const r = s.rShell;
+      if (s.expr.startsWith("h1")) {
+        const given = {
+          h1a: "I₁(c) = ∫ dx exp(−3(x + c)x)",
+          h1b: "I₂(c) = ∫ dx exp(−½(x² + 3x + c/4))",
+          h1c: "I₃(c) = ∫ dx exp(−2(x + 3)(x − c))"
+        };
+        const ctrl = {
+          h1a: "Kontrolle: I₁(2) = √(π/3)·e³",
+          h1b: "Kontrolle: I₂(1) = √(2π)·e",
+          h1c: "Kontrolle: I₃(−3) = √(π/2)"
+        };
+        return `
+          <div class="formula-line">I₀(a) = ∫ dx e^(-ax²) = √(π/a)  (aus B1)</div>
+          <div class="formula-line">${given[s.expr]}</div>
+          <div class="metric-row"><span class="metric-label">Parameter c</span><span class="metric-value">${fmt(s.c, 2)}</span></div>
+          <div class="metric-row"><span class="metric-label">${ctrl[s.expr]}</span><span class="metric-value">(Hausaufgabe)</span></div>
+        `;
+      }
       return `
         <div class="formula-line">I = [I₀(1)]² = ∫₀^∞ 2πr e^(-r²) dr = π</div>
         <div class="formula-line">${info.tex}</div>
@@ -479,23 +502,21 @@
     },
     readout(s) {
       const { a, b, c, body } = s;
-      const Vz = 0.5 * Math.PI * a * b * c;
-      const Ve = (4 / 3) * Math.PI * a * b * c;
-      const Vk = (1 / 3) * Math.PI * a * b * c;
-      const fMap = {
-        Z: "V_Z = 2πab ∫₀¹ μ·c(1−μ²) dμ = ½ π a b c",
-        E: "V_E = 2·2πab ∫₀¹ μ·c√(1−μ²) dμ = ⁴⁄₃ π a b c",
-        K: "V_K = 2πab ∫₀¹ μ·c(1−μ) dμ = ⅓ π a b c"
+      const givenMap = {
+        Z: "h_Z(x, y) = c [1 − (x/a)² − (y/b)²]",
+        E: "(x/a)² + (y/b)² + (z/c)² ≤ 1",
+        K: "Kegel: Höhe c, elliptische Basis (a, b)"
       };
-      const vMap = { Z: Vz, E: Ve, K: Vk };
       return `
-        <div class="formula-line">${fMap[body]}</div>
-        <div class="metric-row"><span class="metric-label">Aktuelles Volumen V_${body}</span><span class="metric-value">${fmt(vMap[body], 4)}</span></div>
-        <div class="metric-row"><span class="metric-label">V_Z / V_E / V_K</span><span class="metric-value">${fmt(Vz, 2)} / ${fmt(Ve, 2)} / ${fmt(Vk, 2)}</span></div>
+        <div class="formula-line">x = μa cos φ,  y = μb sin φ,  dx dy = ab μ dμ dφ</div>
+        <div class="formula-line">${givenMap[body]}</div>
+        <div class="metric-row"><span class="metric-label">Parameter (a, b, c)</span><span class="metric-value">(${fmt(a, 2)}, ${fmt(b, 2)}, ${fmt(c, 2)})</span></div>
+        <div class="metric-row"><span class="metric-label">Kontrolle (a=1/π, b=2, c=3)</span><span class="metric-value">V_Z=3, V_E=8, V_K=2</span></div>
       `;
     },
     insight: `
-      <p>Die rote elliptische Zylinderschale bei festem <code>μ</code> hat die Höhe <code>h(μ)</code> und das Volumenelement <code>2πab μ h(μ) dμ</code>. Beim Kegel (c) wird <code>z ∈ [0, c]</code> von linearen Ellipsen mit Radiusfaktor <code>μ_max(z) = 1 − z/c</code> berandet.</p>
+      <p>Drehe die Körper <code>Z</code>, <code>E</code> und <code>K</code> in 3D und verschiebe <code>μ</code>: Die rote Zylinderschale zeigt den Beitrag bei festem <code>μ</code>, dessen Höhe über den jeweiligen Querschnitt von <code>μ</code> abhängt.</p>
+      <p>Überlege dir für (c), wie der Radius der horizontalen Ellipsen linear mit der Höhe <code>z</code> abnimmt.</p>
     `
   };
 
@@ -657,8 +678,8 @@
       { label: "H3(a) Hohlzylinder a=2", patch: { body: "Z", a: 2.0, zFrac: 0.5 } }
     ],
     panels: [
-      { id: "c3d", type: "3d", title: "3D-Körper (optional aufgeschnitten)", caption: "Ziehen zum Drehen. In (c) zeigt Grau die ausgestanzte Kegel-/Kappen-Geometrie." },
-      { id: "c2d", type: "2d", title: "(ρ, z)-Meridianschnitt mit Integrationsintervall", caption: "Grün: ρ₁(z) ≤ ρ ≤ ρ₂(z) auf der eingestellten Höhe z." }
+      { id: "c3d", type: "3d", title: "3D-Körper (optional aufgeschnitten)", caption: "Ziehen zum Drehen. In (c) zeigt Grau/Rot die Kugel K₁ und den ausgestanzten Kegel K₂." },
+      { id: "c2d", type: "2d", title: "(ρ, z)-Meridianschnitt mit radialem Intervall", caption: "Grüne Linie zeigt das Integrationsintervall ρ₁(z) ≤ ρ ≤ ρ₂(z) auf der gewählten Höhe z." }
     ],
     controls(s) {
       if (s.body === "S" && s.a < 1) s.a = 1;
@@ -842,53 +863,43 @@
       p2d.drawArrow(m, [r1, zSlice], [r2, zSlice], {
         color: "#059669",
         lineWidth: 3,
-        label: `[${fmt(r1, 2)}, ${fmt(r2, 2)}]`,
+        label: "ρ₁(z) ≤ ρ ≤ ρ₂(z)",
         labelPos: "mid",
         labelOffset: [0, -10]
       });
       if (body === "S") {
         const rm = Math.sqrt(Math.max(0, a - 1)) * zm;
-        p2d.drawPoint(m, [rm, zm], { color: "#dc2626", label: `z_m = 2R = ${fmt(zm, 2)}`, offset: [8, -10] });
+        p2d.drawPoint(m, [rm, zm], { color: "#dc2626", label: "Schnittpunkt z_m", offset: [8, -10] });
       }
     },
     readout(s) {
-      const { body, a, R, zFrac } = s;
-      const zm = this.zMax(s);
-      const zSlice = zFrac * zm;
-      const [r1, r2] = this.boundsForZ(s, zSlice);
+      const { body, a } = s;
       if (body === "Z") {
-        const V = 2 * Math.PI * R * R * R * (a * a - 1);
-        const I = 0.5 * (a * a + 1);
         return `
-          <div class="formula-line">V_Z(a) = 2πR³(a² − 1),  I_Z(a) = ½(a² + 1) M R²</div>
-          <div class="metric-row"><span class="metric-label">V_Z / R³</span><span class="metric-value">${fmt(V / (R ** 3), 3)}</span></div>
-          <div class="metric-row"><span class="metric-label">I_Z / (M R²)</span><span class="metric-value">${fmt(I, 4)}</span></div>
-          <div class="metric-row"><span class="metric-label">Grenzen bei z=${fmt(zSlice, 2)}</span><span class="metric-value">${fmt(r1, 2)} ≤ ρ ≤ ${fmt(r2, 2)}</span></div>
+          <div class="formula-line">I = ρ₀ ∫_V dV d⊥²  (d⊥ = ρ in Zylinderkoord.)</div>
+          <div class="formula-line">Z: R ≤ ρ ≤ aR,  0 ≤ z ≤ 2R</div>
+          <div class="metric-row"><span class="metric-label">Skalenfaktor a</span><span class="metric-value">${fmt(a, 2)}</span></div>
+          <div class="metric-row"><span class="metric-label">Kontrolle a=2</span><span class="metric-value">V_Z=6πR³, I_Z=15/6 MR²</span></div>
         `;
       }
       if (body === "P") {
-        const V = 0.5 * Math.PI * a * a * R * R * R;
-        const I = (1 / 3) * a;
         return `
-          <div class="formula-line">V_P(a) = ½ π a² R³,  I_P(a) = ⅓ a M R²</div>
-          <div class="metric-row"><span class="metric-label">V_P / R³</span><span class="metric-value">${fmt(V / (R ** 3), 3)}</span></div>
-          <div class="metric-row"><span class="metric-label">I_P / (M R²)</span><span class="metric-value">${fmt(I, 4)}</span></div>
-          <div class="metric-row"><span class="metric-label">Grenzen bei z=${fmt(zSlice, 2)}</span><span class="metric-value">0 ≤ ρ ≤ ${fmt(r2, 2)}</span></div>
+          <div class="formula-line">I = ρ₀ ∫_V dV d⊥²</div>
+          <div class="formula-line">P: 0 ≤ z ≤ aR,  (x² + y²)/R ≤ z</div>
+          <div class="metric-row"><span class="metric-label">Skalenfaktor a</span><span class="metric-value">${fmt(a, 2)}</span></div>
+          <div class="metric-row"><span class="metric-label">Kontrolle a=2</span><span class="metric-value">V_P=2πR³, I_P=2/3 MR²</span></div>
         `;
       }
-      const V = (4 / 3) * Math.PI * a * R * R * R;
-      const I = 0.4 * (4 * a - 3);
       return `
-        <div class="formula-line">z_m = 2R,  ρ₁(z)=√(a−1)·z,  ρ₂(z)=√(z(2aR−z))</div>
-        <div class="formula-line">V_S(a) = ⁴⁄₃ π a R³,  I_S(a) = ⅖(4a − 3) M R²</div>
-        <div class="metric-row"><span class="metric-label">V_S / R³</span><span class="metric-value">${fmt(V / (R ** 3), 4)} (= ${fmt((4 / 3) * a, 3)}π)</span></div>
-        <div class="metric-row"><span class="metric-label">I_S / (M R²)</span><span class="metric-value">${fmt(I, 4)}</span></div>
-        <div class="metric-row"><span class="metric-label">Grenzen bei z=${fmt(zSlice, 2)}</span><span class="metric-value">${fmt(r1, 2)} ≤ ρ ≤ ${fmt(r2, 2)}</span></div>
+        <div class="formula-line">K₁: x² + y² + (z − aR)² ≤ a²R²</div>
+        <div class="formula-line">K₂: x² + y² ≤ (a − 1)z²  (a ≥ 1)</div>
+        <div class="metric-row"><span class="metric-label">Skalenfaktor a</span><span class="metric-value">${fmt(a, 2)}</span></div>
+        <div class="metric-row"><span class="metric-label">Kontrolle a=4/3</span><span class="metric-value">V_S=16/9 πR³, I_S=14/15 MR²</span></div>
       `;
     },
     insight: `
-      <p><strong>Schüssel S (H3c):</strong> Der Schnittpunkt von Kugelwand <code>ρ² = z(2aR − z)</code> und Kegelwand <code>ρ² = (a−1)z²</code> liefert unabhängig von <code>a</code> stets <code>z_m = 2R</code>!</p>
-      <p><strong>Grenzfall a = 1:</strong> Der Kegel <code>ρ² ≤ 0</code> schrumpft zur bloßen z-Achse (Volumen 0) — übrig bleibt die komplette Vollkugel mit Radius R, Volumen <code>4/3 π R³</code> und Trägheitsmoment <code>2/5 M R²</code>!</p>
+      <p>Nutze den 3D-Aufschnitt und den (ρ, z)-Querschnitt, um die Integrationsgrenzen selbst abzulesen: Wo schneiden sich Kugelwand <code>K₁</code> und Kegelwand <code>K₂</code> für die maximale Höhe <code>z_m</code>?</p>
+      <p>Beobachte mit dem Schieber <code>a</code>, was geometrisch mit dem ausgestanzten Kegel passiert, wenn du dich dem Grenzfall <code>a = 1</code> näherst!</p>
     `
   };
 
@@ -1032,7 +1043,7 @@
       { label: "Einheitskugel: R = 1", patch: { R: 1.0 } }
     ],
     panels: [
-      { id: "c3d", type: "3d", title: "3D-Viertelkugel K (x ≥ 0, y ≥ 0, z ∈ [−R, R])", caption: "Ziehen zum Drehen. Farbe zeigt den Integranden f(r) = x·y (Maximum bei φ = 45°, θ = 90°)." }
+      { id: "c3d", type: "3d", title: "3D-Viertelkugel K (x ≥ 0, y ≥ 0)", caption: "Ziehen zum Drehen. Farbe zeigt qualitativ die Größe von f(r) = x·y." }
     ],
     controls() {
       return [
@@ -1077,17 +1088,15 @@
       sc.render();
     },
     readout(s) {
-      const F = (2 / 15) * Math.pow(s.R, 5);
       return `
-        <div class="formula-line">r ∈ [0, R],  θ ∈ [0, π],  φ ∈ [0, π/2]</div>
-        <div class="formula-line">F(R) = ∫₀^R r⁴dr ∫₀^π sin³θ dθ ∫₀^(π/2) sinφ cosφ dφ = (2/15) R⁵</div>
-        <div class="metric-row"><span class="metric-label">Volumen von K</span><span class="metric-value">⅓ π R³ = ${fmt((Math.PI / 3) * s.R ** 3, 3)}</span></div>
-        <div class="metric-row"><span class="metric-label">Integralwert F(R)</span><span class="metric-value">${fmt(F, 4)}</span></div>
+        <div class="formula-line">K = {r ∈ ℝ³ | x² + y² + z² ≤ R²,  x, y ≥ 0}</div>
+        <div class="formula-line">F(R) = ∫_K dV f(r),   f(r) = x·y</div>
+        <div class="metric-row"><span class="metric-label">Radius R</span><span class="metric-value">${fmt(s.R, 2)}</span></div>
+        <div class="metric-row"><span class="metric-label">Kontrolle R=2</span><span class="metric-value">F(2) = 64/15</span></div>
       `;
     },
     insight: `
-      <p>Weil nur <code>x ≥ 0</code> und <code>y ≥ 0</code> gefordert sind (nicht <code>z ≥ 0</code>!), umfasst K sowohl die obere als auch die untere Halbkugel im ersten Quadranten: <code>θ ∈ [0, π]</code> und <code>φ ∈ [0, π/2]</code> (ein Viertel der Vollkugel).</p>
-      <p>An den beiden ebenen Schnittwänden (<code>x=0</code> und <code>y=0</code>) ist der Integrand <code>f = xy = 0</code>.</p>
+      <p>Achte beim Skizzieren und bei den Kugelkoordinaten-Grenzen darauf, welche Vorzeichen für <code>x</code>, <code>y</code> und <code>z</code> erlaubt sind! Drehe die Viertelkugel, um ihre beiden ebenen Schnittwände (<code>x=0</code> und <code>y=0</code>) zu sehen.</p>
     `
   };
 
@@ -1298,16 +1307,16 @@
     badge: "Hausaufgabe 5",
     badgeClass: "hw",
     title: "Schräge Seite einer rechteckigen Pyramide",
-    subtitle: "Parametrisierung r(x, y) = (x, y, a(1 − 2x − 3y))ᵀ über dem Dreieck U.",
+    subtitle: "Geometrie der schrägen Seitenfläche F_Schräge und ihrer Projektion U in der xy-Ebene.",
     layout: "split",
     defaults: { a: 2.0, x0: 0.16, y0: 0.11 },
     presets: [
-      { label: "Kontrollergebnis: a = 2 → √53 / 12", patch: { a: 2.0, x0: 0.16, y0: 0.11 } },
+      { label: "Kontrollwert: a = 2", patch: { a: 2.0, x0: 0.16, y0: 0.11 } },
       { label: "Flach: a = 0.5", patch: { a: 0.5, x0: 0.16, y0: 0.11 } }
     ],
     panels: [
-      { id: "c2d", type: "2d", title: "Definitionsbereich U (Klicken/Ziehen)", caption: "Dreieck U = {(x, y) | x ≥ 0, y ≥ 0, 2x + 3y ≤ 1} mit Ecken (0,0), (1/2, 0), (0, 1/3)." },
-      { id: "c3d", type: "3d", title: "3D-Pyramide & schräge Fläche F", caption: "Ziehen zum Drehen. Zeigt die Tangentialvektoren ∂_x r, ∂_y r und Normalenvektor ∂_x r × ∂_y r." }
+      { id: "c2d", type: "2d", title: "Projektion U in der xy-Ebene (Klicken)", caption: "Grundfläche unter der schrägen Seitenfläche mit Achsenabschnitten x = 1/2 und y = 1/3." },
+      { id: "c3d", type: "3d", title: "3D-Pyramide & schräge Fläche F", caption: "Ziehen zum Drehen. Gestrichelte Linie verbindet (x₀, y₀, 0) ∈ U mit dem Punkt auf F_Schräge." }
     ],
     controls() {
       return [
@@ -1382,34 +1391,23 @@
 
       const z0 = a * (1 - 2 * s.x0 - 3 * s.y0);
       const P = [s.x0, s.y0, z0];
-      const scV = 0.28;
-      const rx = [1, 0, -2 * a];
-      const ry = [0, 1, -3 * a];
-      const n = [2 * a, 3 * a, 1];
-      const nScale = scV / Math.max(1, vecLen(n) * 0.25);
 
-      sc.addLine([s.x0, s.y0, 0], P, { color: "#64748b", dash: [3, 3] });
-      sc.addArrow(P, vecAdd(P, vecScale(rx, scV * 0.55)), { color: "#dc2626", label: "∂_x r" });
-      sc.addArrow(P, vecAdd(P, vecScale(ry, scV * 0.55)), { color: "#2563eb", label: "∂_y r" });
-      sc.addArrow(P, vecAdd(P, vecScale(n, nScale * 0.45)), { color: "#059669", label: "∂_x r × ∂_y r" });
-      sc.addPoint(P, { color: "#0f172a" });
+      sc.addLine([s.x0, s.y0, 0], P, { color: "#dc2626", dash: [3, 3], lineWidth: 2 });
+      sc.addPoint([s.x0, s.y0, 0], { color: "#059669", label: "U" });
+      sc.addPoint(P, { color: "#dc2626", label: "r(x,y)" });
       sc.render();
     },
     readout(s) {
-      const a = s.a;
-      const norm = Math.sqrt(13 * a * a + 1);
-      const area = norm / 12;
       return `
-        <div class="formula-line">r(x, y) = (x, y, a(1 − 2x − 3y))ᵀ</div>
-        <div class="formula-line">∂_x r × ∂_y r = (2a, 3a, 1)ᵀ,  ‖·‖ = √(13a² + 1)</div>
-        <div class="metric-row"><span class="metric-label">Grundfläche |U|</span><span class="metric-value">1/12 ≈ 0.0833</span></div>
-        <div class="metric-row"><span class="metric-label">Normalen-Norm √(13a²+1)</span><span class="metric-value">${fmt(norm, 4)}</span></div>
-        <div class="metric-row"><span class="metric-label">Fläche A_Schräge</span><span class="metric-value">${fmt(area, 4)}</span></div>
+        <div class="formula-line">A_Schräge = ∫_U dx dy ‖∂_x r × ∂_y r‖</div>
+        <div class="metric-row"><span class="metric-label">Achsenabschnitte</span><span class="metric-value">x=1/2, y=1/3, z=${fmt(s.a, 2)}</span></div>
+        <div class="metric-row"><span class="metric-label">Punkt in U: (x₀, y₀)</span><span class="metric-value">(${fmt(s.x0, 2)}, ${fmt(s.y0, 2)})</span></div>
+        <div class="metric-row"><span class="metric-label">Kontrolle a=2</span><span class="metric-value">A_Schräge = √53 / 12</span></div>
       `;
     },
     insight: `
-      <p>Die schräge Dreiecksfläche verbindet die Achsenabschnitte <code>x = 1/2</code>, <code>y = 1/3</code> und <code>z = a</code>. Ihre Ebene lautet <code>2x + 3y + z/a = 1</code>.</p>
-      <p>Da die Fläche eben ist, bleibt <code>‖∂_x r × ∂_y r‖ = √(13a² + 1)</code> überall konstant, sodass <code>A = √(13a² + 1) · Fläche(U) = √(13a² + 1) / 12</code> sofort folgt.</p>
+      <p>Die schräge Dreiecksfläche verbindet die Achsenabschnitte <code>(1/2, 0, 0)</code>, <code>(0, 1/3, 0)</code> und <code>(0, 0, a)</code>.</p>
+      <p>Klicke links in die Grundfläche <code>U</code>, um zu sehen, wie jeder Punkt <code>(x, y) ∈ U</code> eindeutig einem Punkt auf der schrägen Fläche zugeordnet wird.</p>
     `
   };
 

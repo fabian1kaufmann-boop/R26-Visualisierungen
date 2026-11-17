@@ -119,29 +119,35 @@
       ctx.stroke();
       ctx.restore();
 
-      p2d.drawVectorField(m, (x, y) => {
-        const r = Math.hypot(x, y);
-        if (r < 0.25) return null;
-        const d = this.evalField(s.field, r).deriv;
-        return [(d * x) / r, (d * y) / r];
-      }, 11, 11, { scale: 0.17, maxArrow: 0.28 });
+      if (s.field === "lninv") {
+        p2d.drawVectorField(m, (x, y) => {
+          const r = Math.hypot(x, y);
+          if (r < 0.25) return null;
+          const d = this.evalField(s.field, r).deriv;
+          return [(d * x) / r, (d * y) / r];
+        }, 11, 11, { scale: 0.17, maxArrow: 0.28 });
 
-      const r0 = Math.max(0.2, Math.hypot(s.px, s.py));
-      const d0 = this.evalField(s.field, r0).deriv;
-      const g = [(d0 * s.px) / r0, (d0 * s.py) / r0];
-      p2d.drawArrow(m, [s.px, s.py], [s.px + g[0] * 0.45, s.py + g[1] * 0.45], { color: "#dc2626", lineWidth: 2.6, label: "∇φ" });
+        const r0 = Math.max(0.2, Math.hypot(s.px, s.py));
+        const d0 = this.evalField(s.field, r0).deriv;
+        const g = [(d0 * s.px) / r0, (d0 * s.py) / r0];
+        p2d.drawArrow(m, [s.px, s.py], [s.px + g[0] * 0.45, s.py + g[1] * 0.45], { color: "#dc2626", lineWidth: 2.6, label: "∇φ" });
+      }
       p2d.drawPoint(m, [s.px, s.py], { color: "#0f172a" });
     },
     readout(s) {
       const r = Math.max(0.18, Math.hypot(s.px, s.py));
       const ev = this.evalField(s.field, r);
-      const formulas = {
-        lninv: "∇ ln(1/r) = −r / r² = −(1/r) e_r,  ‖∇φ‖ = 1/r",
-        r1: "∇r = r / r = e_r,  ‖∇r‖ = 1  (für r ≠ 0)",
-        r2: "∇r² = 2r,  ‖∇r²‖ = 2r"
-      };
+      if (s.field !== "lninv") {
+        const given = s.field === "r1" ? "φ(r) = r = √(x² + y² + z²)" : "φ(r) = r² = x² + y² + z²";
+        return `
+          <div class="formula-line">${given}</div>
+          <div class="metric-row"><span class="metric-label">Abstand r = ‖r‖</span><span class="metric-value">${fmt(r, 3)}</span></div>
+          <div class="metric-row"><span class="metric-label">Funktionswert φ(r)</span><span class="metric-value">${fmt(ev.val, 3)}</span></div>
+          <div class="metric-row"><span class="metric-label">Gradient ∇φ</span><span class="metric-value">(Hausaufgabe)</span></div>
+        `;
+      }
       return `
-        <div class="formula-line">${formulas[s.field]}</div>
+        <div class="formula-line">∇ ln(1/r) = −r / r² = −(1/r) e_r,  ‖∇φ‖ = 1/r</div>
         <div class="metric-row"><span class="metric-label">Abstand r = ‖r‖</span><span class="metric-value">${fmt(r, 3)}</span></div>
         <div class="metric-row"><span class="metric-label">Funktionswert φ(r)</span><span class="metric-value">${fmt(ev.val, 3)}</span></div>
         <div class="metric-row"><span class="metric-label">Betrag ‖∇φ(r)‖</span><span class="metric-value">${fmt(Math.abs(ev.deriv), 3)}</span></div>
@@ -149,7 +155,7 @@
     },
     insight: `
       <p><strong>B6:</strong> Für <code>φ(r) = ln(r⁻¹) = −ln r</code> zeigt der Gradient radial nach innen mit Betrag <code>1/r</code>. Daher gilt <code>‖∇φ‖ = 1</code> genau auf der Einheitssphäre <code>r = 1</code> (grün gestrichelt)!</p>
-      <p><strong>H6:</strong> Jede rein radiale Funktion <code>φ(r)</code> hat den Gradienten <code>φ'(r) r/r</code> — senkrecht zu den Kugelschalen.</p>
+      <p><strong>H6:</strong> Vergleiche in 3D und im Konturplot, wie schnell die konzentrischen Niveauflächen bei <code>r</code> (konstanter Abstand) gegenüber <code>r²</code> (immer dichter!) wachsen.</p>
     `
   };
 
@@ -329,18 +335,18 @@
     badge: "Hausaufgabe 7",
     badgeClass: "hw",
     title: "Topografie eines Tals: h(r) = exp(x·y)",
-    subtitle: "Hyperbolische Konturlinien xy = ln H, Sattelpunkt im Ursprung und Maximum von ‖∇h‖ auf Kreis r.",
+    subtitle: "3D-Landschaft und Höhenlinien von h(r) = exp(x·y) zum Überprüfen deiner Skizze.",
     layout: "split",
     defaults: { wx: 1 / Math.SQRT2, wy: 1 / Math.SQRT2, showCircle: true, rCircle: 1.0 },
     presets: [
       { label: "r₁ = (−1, 1)ᵀ/√2", patch: { wx: -1 / Math.SQRT2, wy: 1 / Math.SQRT2, rCircle: 1.0 } },
       { label: "r₂ = (0, 1)ᵀ", patch: { wx: 0.0, wy: 1.0, rCircle: 1.0 } },
-      { label: "r₃ = (1, 1)ᵀ/√2 (steilste)", patch: { wx: 1 / Math.SQRT2, wy: 1 / Math.SQRT2, rCircle: 1.0 } },
-      { label: "Sattelpunkt (0, 0)", patch: { wx: 0.0, wy: 0.0 } }
+      { label: "r₃ = (1, 1)ᵀ/√2", patch: { wx: 1 / Math.SQRT2, wy: 1 / Math.SQRT2, rCircle: 1.0 } },
+      { label: "Ursprung (0, 0)", patch: { wx: 0.0, wy: 0.0 } }
     ],
     panels: [
-      { id: "c3d", type: "3d", title: "3D-Talfläche h(x, y) = exp(x·y)", caption: "Ziehen zum Drehen. Typische Sattelfläche mit H = 1 auf den Achsen." },
-      { id: "c2d", type: "2d", title: "Hyperbel-Konturen & Gradientenfeld (Klicken/Ziehen)", caption: "Grün gestrichelt: Kreis ‖r‖ = r (H7g); Diamanten zeigen die steilsten Punkte (x = y)." }
+      { id: "c3d", type: "3d", title: "3D-Talfläche h(x, y) = exp(x·y)", caption: "Ziehen zum Drehen. Orange markiert r₁, r₂, r₃; Rot ist der aktuelle Punkt r." },
+      { id: "c2d", type: "2d", title: "Höhenlinien (Klicken/Ziehen für Punkt r)", caption: "Grün gestrichelt: Kreis ‖r‖ = r für Teil (g) — achte auf den Abstand der Höhenlinien!" }
     ],
     controls(s) {
       const ctrls = [
@@ -402,8 +408,6 @@
       p2d.drawContours(m, (x, y) => Math.exp(x * y), [0.35, 0.6, 1.0, 1.5, 2.2, 3.3, 4.5], 80, 80);
       p2d.drawGridAndAxes(m, { xStep: 0.5, yStep: 0.5, xLabel: "x", yLabel: "y" });
 
-      p2d.drawVectorField(m, (x, y) => this.gradH(x, y), 11, 11, { scale: 0.14, maxArrow: 0.22 });
-
       if (s.showCircle) {
         const { ctx } = m;
         ctx.save();
@@ -419,10 +423,6 @@
         ctx.lineWidth = 2;
         ctx.stroke();
         ctx.restore();
-
-        const d = s.rCircle / Math.SQRT2;
-        p2d.drawPoint(m, [d, d], { color: "#059669", radius: 5, label: "max ‖∇h‖" });
-        p2d.drawPoint(m, [-d, -d], { color: "#059669", radius: 5, label: "max ‖∇h‖" });
       }
 
       const sq = 1 / Math.SQRT2;
@@ -432,33 +432,24 @@
         [sq, sq, "r₃"]
       ];
       for (const [px, py, lbl] of sheetPts) {
-        const g = this.gradH(px, py);
-        p2d.drawArrow(m, [px, py], [px + g[0] * 0.35, py + g[1] * 0.35], { color: "#d97706", lineWidth: 2.3 });
         p2d.drawPoint(m, [px, py], { color: "#d97706", radius: 4.5, label: lbl });
       }
 
-      const g = this.gradH(s.wx, s.wy);
-      p2d.drawArrow(m, [s.wx, s.wy], [s.wx + g[0] * 0.35, s.wy + g[1] * 0.35], { color: "#dc2626", lineWidth: 2.8, label: "∇h" });
       p2d.drawPoint(m, [s.wx, s.wy], { color: "#dc2626", radius: 5.5, label: "r" });
     },
     readout(s) {
       const h = this.hVal(s.wx, s.wy);
-      const g = this.gradH(s.wx, s.wy);
       const r = Math.hypot(s.wx, s.wy);
-      const gNorm = r * h;
-      const maxOnCircle = s.rCircle * Math.exp(0.5 * s.rCircle * s.rCircle);
       return `
-        <div class="formula-line">∇h_r = exp(xy)·(y, x)ᵀ,  ‖∇h_r‖ = r·exp(xy)</div>
-        <div class="formula-line">Konturlinien: xy = ln H  (Hyperbeln bzw. Achsen)</div>
-        <div class="metric-row"><span class="metric-label">Höhe h(r) = exp(xy)</span><span class="metric-value">${fmt(h, 4)}</span></div>
-        <div class="metric-row"><span class="metric-label">Gradient ∇h_r</span><span class="metric-value">(${fmt(g[0], 3)}, ${fmt(g[1], 3)})ᵀ</span></div>
-        <div class="metric-row"><span class="metric-label">Steilheit ‖∇h_r‖</span><span class="metric-value">${fmt(gNorm, 4)}</span></div>
-        ${s.showCircle ? `<div class="metric-row"><span class="metric-label">Max. auf Kreis r=${fmt(s.rCircle, 2)}</span><span class="metric-value">${fmt(maxOnCircle, 4)}</span></div>` : ""}
+        <div class="formula-line">h(r) = exp(x · y)</div>
+        <div class="metric-row"><span class="metric-label">Position r</span><span class="metric-value">(${fmt(s.wx, 2)}, ${fmt(s.wy, 2)})ᵀ</span></div>
+        <div class="metric-row"><span class="metric-label">Abstand r = ‖r‖</span><span class="metric-value">${fmt(r, 3)}</span></div>
+        <div class="metric-row"><span class="metric-label">Höhe h(r)</span><span class="metric-value">${fmt(h, 4)}</span></div>
       `;
     },
     insight: `
-      <p><strong>Flachste Stelle (f):</strong> Nur im Ursprung <code>(0, 0)</code> gilt <code>∇h = (0, 0)ᵀ</code>. Dort ist ein Sattelpunkt mit Höhe <code>h(0, 0) = 1</code>.</p>
-      <p><strong>Steilste Stelle auf Kreis r (g):</strong> Da <code>‖∇h‖ = r·exp(½ r² sin(2φ))</code>, wird die Steilheit bei festem <code>r</code> maximal, wenn <code>sin(2φ) = 1</code>, also für <code>x = y = ±r/√2</code> (1. und 3. Quadrant).</p>
+      <p>Beachte in deinem eigenen Konturplot (Teil d), wie die Gradientenvektoren <code>∇h_r</code> stets senkrecht auf den jeweiligen Höhenlinien stehen und in Richtung steigender Werte zeigen.</p>
+      <p>Schau dir für (f) und (g) an, wo die Höhenlinien besonders weit auseinander liegen (flach) und wo sie auf dem gestrichelten Kreis <code>‖r‖ = r</code> am dichtesten beieinander liegen (steil)!</p>
     `
   };
 
